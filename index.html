@@ -1112,6 +1112,8 @@ const CONFIG = {
   cloudKey: '$2a$10$6JBf/tDmHHw8OUo7kOu4qeCaR/z1ig/ebimoPu7/GxXsDsdG2855O',
   // 전용 중계 서버 (Cloudflare Worker) 주소 - 비워두면 무료 중계 서버만 사용
   workerUrl: '/.netlify/functions/ical',
+  // 클라우드 저장소 (Netlify Blobs)
+  dataUrl: 'https://calm-choux-1ed2c5.netlify.app/.netlify/functions/data',
   cloudUrl: 'https://api.jsonbin.io/v3/b',
   cloudPollMs: 30000,
   cloudSaveDebounceMs: 300,
@@ -1513,16 +1515,18 @@ function loadLocal() {
 }
 
 let cloudSaveTimer = null;
+let cloudEmpty = false; // 클라우드가 비어있으면 true (최초 이전용)
 let cloudSyncPaused = false;
 let lastCloudSavedAt = null;
 
 async function cloudLoad() {
   try {
-    const resp = await fetch(`${CONFIG.cloudUrl}/${CONFIG.cloudBin}/latest`, {
-      headers: { 'X-Master-Key': CONFIG.cloudKey },
+    const resp = await fetch(CONFIG.dataUrl, {
+      cache: 'no-store',
     });
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     const data = await resp.json();
+    cloudEmpty = !data.record;
     return data.record || null;
   } catch (e) { console.warn('Cloud load failed:', e); return null; }
 }
@@ -1546,11 +1550,10 @@ async function cloudSave() {
       opsSections: state.opsSections,
       cleaningLogs: state.cleaningLogs,
     };
-    const resp = await fetch(`${CONFIG.cloudUrl}/${CONFIG.cloudBin}`, {
+    const resp = await fetch(CONFIG.dataUrl, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'X-Master-Key': CONFIG.cloudKey,
       },
       body: JSON.stringify(payload),
     });
@@ -3212,6 +3215,10 @@ async function init() {
   if (cloud && applyCloudData(cloud)) {
     saveLocal();
     lastCloudSavedAt = cloud.savedAt;
+  } else if (cloudEmpty && state.rooms.length > 0) {
+    // 새 클라우드가 비어있고 이 기기에 데이터가 있으면 → 이 기기 데이터를 클라우드로 이전
+    cloudEmpty = false;
+    await cloudSave();
   }
   render();
 
