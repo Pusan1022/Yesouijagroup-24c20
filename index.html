@@ -2,6 +2,9 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -166,59 +169,6 @@
     background: white;
   }
 
-  /* 청소 기록 (LOGS) */
-  .logs-day {
-    margin-bottom: 18px;
-  }
-  .logs-group {
-    background: var(--card);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    padding: 8px 10px;
-    margin-bottom: 8px;
-  }
-  .logs-cleaner {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 700;
-    margin-bottom: 6px;
-  }
-  .logs-count {
-    background: rgba(255,255,255,0.3);
-    padding: 1px 6px;
-    border-radius: 999px;
-    font-size: 10px;
-    margin-left: 4px;
-  }
-  .logs-rooms {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .logs-room {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 5px 8px;
-    background: #faf7f2;
-    border-radius: 5px;
-    font-size: 13px;
-    flex-wrap: wrap;
-  }
-  .logs-room-name {
-    font-weight: 600;
-  }
-  .logs-memo {
-    font-size: 11px;
-    color: var(--ink-soft);
-    background: white;
-    padding: 2px 6px;
-    border-radius: 4px;
-    border: 1px solid var(--line);
-    margin-left: auto;
-  }
   .tabs {
     display: flex;
     gap: 4px;
@@ -327,6 +277,7 @@
   }
   .badge.checkout { background: #fde6de; color: var(--checkout); }
   .badge.checkin { background: #dbf0e3; color: var(--checkin); }
+  .badge.common { background: #e8e4f5; color: #6a5aa8; }
   .branch-tag {
     font-size: 11px;
     font-weight: 700;
@@ -631,6 +582,30 @@
     line-height: 1.2;
   }
   .bs-task:hover { filter: brightness(1.1); }
+  .bs-cell {
+    cursor: pointer;
+  }
+  .bs-cell.empty { cursor: default; }
+  .bs-cell:not(.empty):hover {
+    background: #f6f1e8;
+  }
+  .daydetail-backbar {
+    margin-bottom: 12px;
+  }
+  .daydetail-back-btn {
+    background: var(--card);
+    border: 1px solid var(--line);
+    color: var(--ink-soft);
+    padding: 8px 16px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .daydetail-back-btn:hover {
+    background: #f0eadf;
+  }
   .tl-controls {
     display: flex;
     gap: 4px;
@@ -985,9 +960,18 @@
     color: var(--ink-soft);
     font-style: italic;
   }
+  /* 직원별 달력 끌어서 옮기기 */
+  .bs-task { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+  .bs-task.bs-dragging { opacity: 0.35; }
+  .bs-ghost { position: fixed; z-index: 9999; pointer-events: none; opacity: 0.92;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.25); transform: scale(1.05); }
+  .bs-cell.drop-hover { outline: 2px dashed var(--accent); outline-offset: -2px; background: #fff3e8; }
+  .bs-drag-help { font-size: 11px; color: var(--ink-soft); margin: -2px 0 8px; }
 </style>
 </head>
 <body>
+
+<div id="save-status-indicator" style="display:none; position:fixed; top:12px; right:12px; padding:8px 14px; border-radius:8px; font-size:13px; font-weight:600; z-index:9999; box-shadow:0 2px 8px rgba(0,0,0,0.15); transition:opacity 0.3s;"></div>
 
 <div class="shell">
   <header>
@@ -998,6 +982,7 @@
         <span id="status-text">준비 중…</span>
         <button class="btn-icon" id="btn-refresh">↻</button>
         <button class="btn-icon btn-add" id="btn-add-booking" data-i18n="btnAddBooking" style="display:none">+ 예약</button>
+        <button class="btn-icon btn-add" id="btn-add-common" data-i18n="btnAddCommonCleaning" style="display:none">+ 공용공간 청소</button>
         <button class="btn-icon" id="btn-settings" data-i18n="btnSettings">설정</button>
         <span class="lang-toggle">
           <button class="lang-btn active" data-lang="ko">한</button>
@@ -1010,7 +995,6 @@
       <button class="tab" data-view="tomorrow" data-i18n="tabTomorrow">내일</button>
       <button class="tab" data-view="bystaff" data-i18n="tabByStaff">직원별</button>
       <button class="tab" data-view="week" data-i18n="tabWeek">일정표</button>
-      <button class="tab" data-view="logs" data-i18n="tabLogs">기록</button>
       <button class="tab" data-view="ops" data-i18n="tabOps">운영정보</button>
     </div>
   </header>
@@ -1032,6 +1016,25 @@
         <label data-i18n="fieldCheckoutTime">체크아웃 시간</label>
         <input type="text" id="bm-checkout-time" data-i18n-placeholder="timePlaceholder" placeholder="손님이 알려준 시간만">
       </div>
+    </div>
+    <div class="field" id="bm-block-notice" style="display:none; background:#fff3e0; border:1px solid #ffb74d; border-radius:8px; padding:12px;">
+      <div style="font-size:13px; color:#7a4500; margin-bottom:8px;">
+        ⚠️ <strong>1박 예약 — 차단으로 추정됨</strong><br>
+        에어비앤비 예약 차단으로 보여서 청소 일정에서 자동으로 숨겼어요.
+        실제 손님 예약이라면 아래 버튼을 눌러주세요.
+      </div>
+      <button class="clean-btn" id="bm-confirm-real" style="background:#4caf50; color:white; border-color:#4caf50;">
+        ✓ 이건 진짜 예약입니다 (청소 일정에 추가)
+      </button>
+    </div>
+    <div class="field" id="bm-unconfirm-notice" style="display:none; background:#e8f5e9; border:1px solid #81c784; border-radius:8px; padding:12px;">
+      <div style="font-size:13px; color:#2e7d32; margin-bottom:8px;">
+        ✓ <strong>진짜 예약으로 확정됨</strong><br>
+        이 1박 예약은 청소 일정에 포함돼요.
+      </div>
+      <button class="clean-btn" id="bm-mark-block" style="background:#9e9e9e; color:white; border-color:#9e9e9e;">
+        🚫 다시 차단으로 처리 (청소 일정에서 숨김)
+      </button>
     </div>
     <div class="field" id="bm-cleaning-field" style="display:none;">
       <label data-i18n="cleaningField">🧹 청소 예정일</label>
@@ -1102,33 +1105,130 @@
   </div>
 </div>
 
+<div class="modal-bg" id="common-modal">
+  <div class="modal">
+    <h3 id="cm-title">+ 공용공간 청소 추가</h3>
+    <div class="modal-sub" data-i18n="commonModalSub">체크아웃 없이 공용공간만 청소하는 일정</div>
+    <div class="field">
+      <label data-i18n="fieldCommonBranch">🏠 집 (지점)</label>
+      <select id="cm-branch"></select>
+    </div>
+    <div class="field">
+      <label data-i18n="fieldCommonDate">📅 청소 날짜</label>
+      <input type="date" id="cm-date">
+    </div>
+    <div class="field">
+      <label data-i18n="fieldCommonLabel">청소 위치 (선택)</label>
+      <input type="text" id="cm-label" data-i18n-placeholder="commonLabelPlaceholder" placeholder="예: 1층 복도, 옥상, 주차장">
+    </div>
+    <div class="field">
+      <label data-i18n="fieldCleaner">🧹 청소 담당자</label>
+      <div class="chips" id="cm-cleaners"></div>
+    </div>
+    <div class="field">
+      <label data-i18n="fieldMemo">메모 (게스트 정보, 특이사항)</label>
+      <textarea id="cm-memo" placeholder=""></textarea>
+    </div>
+    <div class="btn-row">
+      <button id="cm-cancel" data-i18n="cancel">취소</button>
+      <button class="danger" id="cm-delete" data-i18n="delete" style="display:none">삭제</button>
+      <button class="primary" id="cm-save" data-i18n="save">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase SDK (Realtime Database) - CDN으로 로드 후 window에 노출 -->
+<script>
+// Netlify 저장소 연결 (예전 Firebase 대체) - 앱 코드가 쓰던 window.fb 방식 그대로 제공
+(function () {
+  const DATA_URL = '/.netlify/functions/data';
+  const POLL_MS = 20000;   // 다른 기기 변경 확인 주기 (작은 요청만 보냄)
+  let lastSeen = null;     // 마지막으로 받은 클라우드 저장 시각
+  const listeners = new Set();
+  const snap = (v) => ({ exists: () => v != null, val: () => v });
+
+  async function getFull() {
+    const r = await fetch(DATA_URL, { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    if (j.record && j.record.savedAt) lastSeen = j.record.savedAt;
+    return j.record || null;
+  }
+  async function getMeta() {
+    const r = await fetch(DATA_URL + '?meta=1', { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return (await r.json()).savedAt || null;
+  }
+  async function write(method, payload) {
+    const body = JSON.stringify(payload);
+    const r = await fetch(DATA_URL, {
+      method, body,
+      headers: { 'Content-Type': 'application/json' },
+      keepalive: body.length < 60000,
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const j = await r.json();
+    // 그 사이 다른 기기가 저장하지 않았을 때만 '최신'으로 간주 (아니면 다음 확인 때 받아옴)
+    if (lastSeen === null || j.prevSavedAt === lastSeen) lastSeen = j.savedAt;
+    return true;
+  }
+  async function poll() {
+    if (!listeners.size || document.visibilityState !== 'visible') return;
+    try {
+      const s = await getMeta();
+      if (s && s !== lastSeen) {
+        const v = await getFull();
+        listeners.forEach(cb => { try { cb(snap(v)); } catch (e) { console.warn(e); } });
+      }
+    } catch (e) { console.warn('Cloud check failed:', e); }
+  }
+  setInterval(poll, POLL_MS);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') poll(); });
+
+  window.fb = {
+    db: {},
+    ref: (db, path) => path,
+    get: async () => snap(await getFull()),
+    update: (ref, payload) => write('PATCH', payload),
+    set: (ref, payload) => write('PUT', payload),
+    onValue: (ref, cb) => { listeners.add(cb); },
+    off: (ref, ev, cb) => { listeners.delete(cb); },
+    serverTimestamp: () => Date.now(),
+    goOnline: () => {}, goOffline: () => {},
+    ready: true,
+  };
+  window.dispatchEvent(new Event('firebase-ready'));
+})();
+</script>
+
 <script>
 'use strict';
 
 const CONFIG = {
   defaultCheckinTime: '16:00',
   defaultCheckoutTime: '11:00',
+  // Firebase Realtime Database 경로
+  fbDataPath: 'scheduleData/main',
+  // jsonbin (마이그레이션용으로만 사용, 한 번만 읽어옴)
   cloudBin: '69eab3fa36566621a8e613cc',
-  cloudKey: '$2a$10$6JBf/tDmHHw8OUo7kOu4qeCaR/z1ig/ebimoPu7/GxXsDsdG2855O',
-  // 전용 중계 서버 (Cloudflare Worker) 주소 - 비워두면 무료 중계 서버만 사용
-  workerUrl: '/.netlify/functions/ical',
-  // 클라우드 저장소 (Netlify Blobs)
-  dataUrl: 'https://calm-choux-1ed2c5.netlify.app/.netlify/functions/data',
   cloudUrl: 'https://api.jsonbin.io/v3/b',
-  cloudPollMs: 30000,
-  cloudSaveDebounceMs: 300,
+  // Firebase 저장 설정
+  cloudSaveDebounceMs: 500,
+  cloudLoadTimeoutMs: 10000,
+  cloudSaveTimeoutMs: 12000,
 };
 
 const PROXIES = [
-  ...(CONFIG.workerUrl ? [(url) => `${CONFIG.workerUrl.replace(/\/$/, '')}?url=${encodeURIComponent(url)}`] : []),
+  // 우리 사이트 안의 전용 중계 서버 (Netlify, 최우선)
+  (url) => `/.netlify/functions/ical?url=${encodeURIComponent(url)}`,
+  // 본인 전용 Cloudflare Worker
+  (url) => `https://airbnb-proxy.yiminan1022.workers.dev/?url=${encodeURIComponent(url)}`,
+  // 무료 공용 프록시들 (본인 프록시 실패 시 백업용)
   (url) => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
   (url) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
   (url) => `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`,
   (url) => `https://cors-proxy.fringe.zone/${url}`,
   (url) => `https://thingproxy.freeboard.io/fetch/${url}`,
-  (url) => `https://cors.eu.org/${url}`,
-  (url) => `https://api.cors.lol/?url=${encodeURIComponent(url)}`,
-  (url) => `https://corsproxy.org/?${encodeURIComponent(url)}`,
 ];
 
 const STORAGE_KEY = 'schedule_v2_data';
@@ -1151,11 +1251,7 @@ const I18N = {
     btnAddBooking: '+ 예약',
     btnSettings: '설정',
     // 탭
-    tabToday: '오늘', tabTomorrow: '내일', tabByStaff: '직원별', tabWeek: '일정표', tabOps: '운영정보', tabLogs: '기록',
-    logsTitle: '📜 청소 기록',
-    logsSub: '지난 14일 동안의 청소 내역 (자동 저장됨)',
-    logsEmpty: '아직 청소 기록이 없어요. 청소가 완료된 다음 날부터 자동으로 기록됩니다.',
-    logsCleanerNone: '담당자 미지정',
+    tabToday: '오늘', tabTomorrow: '내일', tabByStaff: '직원별', tabWeek: '일정표', tabOps: '운영정보',
     opsTitle: '🔧 운영 정보',
     opsSub: '비밀번호, 와이파이, 공유사항 등 상시 공유 정보',
     opsSectionTitle: (name) => `📌 ${name}`,
@@ -1180,6 +1276,8 @@ const I18N = {
     cleaningOnOtherDay: (d) => `📤 ${d} 체크아웃 (청소는 다른 날)`,
     todayLabel: '오늘', tomorrowLabel: '내일',
     todayTag: 'TODAY', tomorrowTag: 'TOMORROW',
+    dayDetailBack: '← 뒤로',
+    dayDetailLabel: (d, w) => `${d}(${w})`,
     // 라벨
     checkout: '체크아웃', checkin: '체크인', stayLabel: '체류중',
     cleanerUnassigned: '🧹 담당자 미지정',
@@ -1222,6 +1320,22 @@ const I18N = {
     cleanStatusSkip: '🚫 청소 안 함',
     cleanStatusLater: (d, w) => `⏭ ${d}(${w}) 청소`,
     cleanStatusEarlier: (d, w) => `⏮ ${d}(${w}) 청소`,
+    // 공용공간 청소
+    commonBadge: '공용공간',
+    commonModalTitle: '+ 공용공간 청소 추가',
+    commonModalEditTitle: '공용공간 청소 수정',
+    commonModalSub: '체크아웃 없이 공용공간만 청소하는 일정',
+    fieldCommonBranch: '🏠 집 (지점)',
+    fieldCommonDate: '📅 청소 날짜',
+    fieldCommonLabel: '청소 위치 (선택)',
+    commonLabelPlaceholder: '예: 1층 복도, 옥상, 주차장',
+    commonLabelDefault: '공용공간',
+    commonDeleteConfirm: '이 공용공간 청소 일정을 삭제할까요?',
+    btnAddCommonCleaning: '+ 공용공간 청소',
+    invalidCommonInputs: '집(지점)과 날짜를 입력해주세요.',
+    needBranchFirst: '먼저 설정에서 집(지점)을 등록해주세요.',
+    addBookingMenuLabel: '예약 추가',
+    addCommonMenuLabel: '공용공간 청소 추가',
     // 직접 예약
     manualModalTitle: '+ 직접 예약 추가',
     manualModalEditTitle: '직접 예약 수정',
@@ -1278,11 +1392,7 @@ const I18N = {
     statusNeedSetup: 'Setup required',
     btnAddBooking: '+ Booking',
     btnSettings: 'Settings',
-    tabToday: 'Today', tabTomorrow: 'Tomorrow', tabByStaff: 'By Staff', tabWeek: 'Schedule', tabOps: 'Ops Info', tabLogs: 'History',
-    logsTitle: '📜 Cleaning History',
-    logsSub: 'Last 14 days of cleanings (auto-saved)',
-    logsEmpty: 'No cleaning history yet. Records will be saved automatically after each day passes.',
-    logsCleanerNone: 'Unassigned',
+    tabToday: 'Today', tabTomorrow: 'Tomorrow', tabByStaff: 'By Staff', tabWeek: 'Schedule', tabOps: 'Ops Info',
     opsTitle: '🔧 Operations Info',
     opsSub: 'Passwords, WiFi, shared notes - always-on reference',
     opsSectionTitle: (name) => `📌 ${name}`,
@@ -1303,6 +1413,8 @@ const I18N = {
     cleaningOnOtherDay: (d) => `📤 ${d} Check-out (cleaning on another day)`,
     todayLabel: "Today's", tomorrowLabel: "Tomorrow's",
     todayTag: 'TODAY', tomorrowTag: 'TOMORROW',
+    dayDetailBack: '← Back',
+    dayDetailLabel: (d, w) => `${d}(${w})`,
     checkout: 'Check-out', checkin: 'Check-in', stayLabel: 'Staying',
     cleanerUnassigned: '🧹 Unassigned',
     memoTitle: '📝 Task Memo (shared with all staff)',
@@ -1339,6 +1451,21 @@ const I18N = {
     cleanStatusSkip: '🚫 No cleaning',
     cleanStatusLater: (d, w) => `⏭ Cleaning on ${d}(${w})`,
     cleanStatusEarlier: (d, w) => `⏮ Cleaning on ${d}(${w})`,
+    commonBadge: 'Common',
+    commonModalTitle: '+ Add Common Area Cleaning',
+    commonModalEditTitle: 'Edit Common Area Cleaning',
+    commonModalSub: 'Cleaning common areas without a checkout',
+    fieldCommonBranch: '🏠 House (Branch)',
+    fieldCommonDate: '📅 Cleaning date',
+    fieldCommonLabel: 'Location (optional)',
+    commonLabelPlaceholder: 'e.g. 1F hallway, rooftop, parking',
+    commonLabelDefault: 'Common area',
+    commonDeleteConfirm: 'Delete this common area cleaning?',
+    btnAddCommonCleaning: '+ Common Cleaning',
+    invalidCommonInputs: 'Please fill in house (branch) and date.',
+    needBranchFirst: 'Please add a branch in Settings first.',
+    addBookingMenuLabel: 'Add Booking',
+    addCommonMenuLabel: 'Add Common Area Cleaning',
     manualModalTitle: '+ Add Direct Booking',
     manualModalEditTitle: 'Edit Direct Booking',
     manualModalSub: 'Bookings outside Airbnb/Booking',
@@ -1430,8 +1557,11 @@ const state = {
   manualBookings: [],
   dayMemo: {},
   opsSections: [],  // 운영정보 섹션 [{id, title, content}]
+  commonAreaCleanings: [],  // 공용공간 청소 [{id, date, branchId, label, cleanerId, memo}]
   cleaningLogs: [],  // 자동 청소 기록 [{date, roomId, cleanerId, branchId, roomName, cleanerName}]
   icalBookings: [],
+  archivedBookings: [],  // 지난 iCal 예약 보존 (동기화 시 사라지는 것 방지)
+  confirmedBookings: {},  // 사용자가 "1박이지만 진짜 예약"으로 확정한 것 { "roomId|checkin|checkout": true }
   syncErrors: [],
   syncedAt: null,
   view: 'today',
@@ -1441,6 +1571,8 @@ const state = {
   cleanerSelectedId: null,
   selectedStaffId: null,
   bystaffMonth: null,
+  dayDetailDate: null,    // 'YYYY-MM-DD' (직원별 → 날짜 상세 화면용)
+  dayDetailFromView: null, // 어디서 왔는지 (뒤로가기용)
 };
 
 const $ = (id) => document.getElementById(id);
@@ -1474,6 +1606,26 @@ function sameDate(a, b) {
       && a.getDate() === b.getDate();
 }
 function dowKR(d) { return ['일','월','화','수','목','금','토'][d.getDay()]; }
+
+// 예약 박수 계산 (체크인~체크아웃 일수 차이)
+function bookingNights(booking) {
+  const ci = parseDate(booking.checkin);
+  const co = parseDate(booking.checkout);
+  if (!ci || !co) return 0;
+  return Math.round((co - ci) / (1000 * 60 * 60 * 24));
+}
+
+// 1박 예약인지 (= 차단으로 추정). 단, 사용자가 수동으로 '진짜 예약'으로 표시한 건 제외
+// state.confirmedBookings: 사용자가 "이건 진짜 예약" 처리한 예약 키 목록
+function isLikelyBlock(booking) {
+  if (bookingNights(booking) !== 1) return false;  // 2박 이상은 진짜 예약
+  // 수동 입력 예약은 항상 진짜 예약으로 간주
+  if (booking.isManual) return false;
+  // 사용자가 "진짜 예약"으로 확정한 건 제외
+  const key = noteKey(booking);
+  if (state.confirmedBookings && state.confirmedBookings[key]) return false;
+  return true;
+}
 function prettyDate(d) {
   if (currentLang === 'en') {
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1492,7 +1644,10 @@ function saveLocal() {
       manualBookings: state.manualBookings,
       dayMemo: state.dayMemo,
       opsSections: state.opsSections,
+      commonAreaCleanings: state.commonAreaCleanings,
       cleaningLogs: state.cleaningLogs,
+      archivedBookings: state.archivedBookings,
+      confirmedBookings: state.confirmedBookings,
     };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch (e) { console.warn('Local save failed:', e); }
@@ -1510,56 +1665,311 @@ function loadLocal() {
     state.manualBookings = data.manualBookings || [];
     state.dayMemo = data.dayMemo || {};
     state.opsSections = data.opsSections || [];
+    state.commonAreaCleanings = data.commonAreaCleanings || [];
     state.cleaningLogs = data.cleaningLogs || [];
+    state.archivedBookings = data.archivedBookings || [];
+    state.confirmedBookings = data.confirmedBookings || {};
   } catch (e) { console.warn('Local load failed:', e); }
 }
 
 let cloudSaveTimer = null;
-let cloudEmpty = false; // 클라우드가 비어있으면 true (최초 이전용)
 let cloudSyncPaused = false;
 let lastCloudSavedAt = null;
 
+// ─── 안전성 강화 변수들 ───
+let cloudSaveInFlight = false;     // 동시에 여러 cloudSave가 실행되는 것 방지 (락)
+let beaconFired = false;           // pagehide/beforeunload 중복 호출 방지
+const PENDING_QUEUE_KEY = 'schedule_v2_pending';  // 저장 실패 시 임시 보관 큐
+const RETRY_DELAYS = [1000, 2000, 4000];          // 지수 백오프 (1초 → 2초 → 4초)
+
+// Firebase가 준비될 때까지 대기 (이미 준비됐을 수도 있음)
+function waitForFirebase(timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    if (window.fb && window.fb.ready) return resolve();
+    const timer = setTimeout(() => reject(new Error('Firebase load timeout')), timeoutMs);
+    window.addEventListener('firebase-ready', () => {
+      clearTimeout(timer);
+      resolve();
+    }, { once: true });
+  });
+}
+
+// Firebase에서 데이터 읽기
 async function cloudLoad() {
   try {
-    const resp = await fetch(CONFIG.dataUrl, {
-      cache: 'no-store',
-    });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    const data = await resp.json();
-    cloudEmpty = !data.record;
-    return data.record || null;
+    await waitForFirebase();
+    const snapshot = await window.fb.get(window.fb.ref(window.fb.db, CONFIG.fbDataPath));
+    if (!snapshot.exists()) return null;
+    return snapshot.val();
   } catch (e) { console.warn('Cloud load failed:', e); return null; }
 }
 
-function cloudSaveDebounced() {
+// jsonbin에서 데이터 읽기 (마이그레이션용, 1회만 사용)
+async function jsonbinLoadForMigration() {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), CONFIG.cloudLoadTimeoutMs);
+  try {
+    const resp = await fetch(`${CONFIG.cloudUrl}/${CONFIG.cloudBin}/latest`, {
+      headers: { 'X-Master-Key': CONFIG.cloudKey },
+      signal: ctrl.signal,
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    return data.record || null;
+  } catch (e) { console.warn('jsonbin migration load failed:', e); return null; }
+  finally { clearTimeout(timer); }
+}
+
+// ─── 변경 필드 추적 (부분 저장용) ───
+// 전체 문서를 set()으로 덮어쓰면, 이 기기가 갖고 있던 오래된 데이터가
+// 다른 기기에서 쓴 운영정보/메모를 통째로 되돌려버리는 사고가 생긴다.
+// 그래서 "이 기기에서 실제로 바꾼 필드"만 update()로 부분 저장한다.
+const SYNC_KEYS = ['branches','rooms','staff','notes','manualBookings','dayMemo',
+  'opsSections','commonAreaCleanings','cleaningLogs','archivedBookings','confirmedBookings'];
+let dirtyKeys = new Set();
+
+function markDirty(keys) {
+  for (const k of keys) dirtyKeys.add(k);
+}
+
+function cloudSaveDebounced(...keys) {
+  // 어떤 필드가 바뀌었는지 기록 (키를 안 넘기면 안전하게 전체로 간주)
+  markDirty(keys.length ? keys : SYNC_KEYS);
+  // 저장 대기 중 표시
+  setSaveStatus('saving');
   if (cloudSaveTimer) clearTimeout(cloudSaveTimer);
   cloudSaveTimer = setTimeout(cloudSave, CONFIG.cloudSaveDebounceMs);
 }
 
-async function cloudSave() {
+// 현재 state로 payload 생성 (keys에 지정된 필드만 포함 - 부분 저장)
+// Firebase는 undefined를 거부하므로 JSON 직렬화/역직렬화로 깨끗이 정리
+function buildPayload(keys) {
+  const useKeys = keys && keys.length ? keys : SYNC_KEYS;
+  const raw = {
+    v: 2,
+    savedAt: new Date().toISOString(),
+  };
+  for (const k of useKeys) {
+    if (SYNC_KEYS.includes(k)) raw[k] = state[k];
+  }
+  // JSON 왕복으로 undefined 제거 (Firebase가 undefined를 거부함)
+  return JSON.parse(JSON.stringify(raw));
+}
+
+// 한 번의 저장 시도 (재시도 로직에서 사용)
+// update()는 payload에 포함된 필드만 갱신하므로, 다른 기기가 쓴 나머지 필드는 보존된다.
+async function cloudPutOnce(payload, timeoutMs) {
+  await waitForFirebase();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Firebase save timeout')), timeoutMs);
+    window.fb.update(window.fb.ref(window.fb.db, CONFIG.fbDataPath), payload)
+      .then(() => { clearTimeout(timer); resolve(true); })
+      .catch(e => { clearTimeout(timer); reject(e); });
+  });
+}
+
+// 전체 문서 저장 (마이그레이션 등 최초 1회용)
+async function cloudSetOnce(payload, timeoutMs) {
+  await waitForFirebase();
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Firebase save timeout')), timeoutMs);
+    window.fb.set(window.fb.ref(window.fb.db, CONFIG.fbDataPath), payload)
+      .then(() => { clearTimeout(timer); resolve(true); })
+      .catch(e => { clearTimeout(timer); reject(e); });
+  });
+}
+
+// 저장 실패 시 임시 큐에 보관
+function savePendingQueue(payload) {
   try {
-    const payload = {
-      v: 2,
-      savedAt: new Date().toISOString(),
-      branches: state.branches,
-      rooms: state.rooms,
-      staff: state.staff,
-      notes: state.notes,
-      manualBookings: state.manualBookings,
-      dayMemo: state.dayMemo,
-      opsSections: state.opsSections,
-      cleaningLogs: state.cleaningLogs,
-    };
-    const resp = await fetch(CONFIG.dataUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
-    lastCloudSavedAt = payload.savedAt;
-  } catch (e) { console.warn('Cloud save failed:', e); }
+    localStorage.setItem(PENDING_QUEUE_KEY, JSON.stringify({
+      payload: payload,
+      queuedAt: Date.now(),
+    }));
+    console.warn('Saved to pending queue for later retry');
+  } catch (e) { console.warn('Pending queue save failed:', e); }
+}
+
+// 큐에서 꺼내기
+function loadPendingQueue() {
+  try {
+    const raw = localStorage.getItem(PENDING_QUEUE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) { return null; }
+}
+
+// 큐 비우기
+function clearPendingQueue() {
+  try { localStorage.removeItem(PENDING_QUEUE_KEY); } catch (e) {}
+}
+
+// 큐에 저장 실패한 데이터가 있으면 재전송 시도
+async function flushPendingQueue() {
+  const pending = loadPendingQueue();
+  if (!pending || !pending.payload) return;
+  // 큐 안 데이터가 너무 오래된 경우 (24시간) 그냥 버림 (현재 상태로 덮어쓰기됨)
+  if (Date.now() - pending.queuedAt > 24 * 60 * 60 * 1000) {
+    clearPendingQueue();
+    return;
+  }
+  // 클라우드에 더 최신 데이터가 있는지 먼저 확인 (다른 사람이 그 사이 저장했을 수 있음)
+  try {
+    const cloud = await cloudLoad();
+    if (cloud && cloud.savedAt && new Date(cloud.savedAt) > new Date(pending.payload.savedAt)) {
+      // 클라우드가 더 최신이면, 큐의 데이터로 덮어쓰지 않음 (충돌 회피)
+      console.warn('Pending queue discarded: cloud has newer data');
+      clearPendingQueue();
+      return;
+    }
+  } catch (e) { /* 무시하고 재전송 시도 */ }
+
+  try {
+    await cloudPutOnce(pending.payload, CONFIG.cloudSaveTimeoutMs);
+    lastCloudSavedAt = pending.payload.savedAt;
+    clearPendingQueue();
+    console.log('Pending queue flushed successfully');
+  } catch (e) {
+    console.warn('Pending queue flush failed, will retry next time:', e);
+  }
+}
+
+async function cloudSave() {
+  // 락: 이미 실행 중이면 중복 실행 방지
+  if (cloudSaveInFlight) return;
+  // 바뀐 게 없으면 저장할 것도 없음
+  if (dirtyKeys.size === 0) { setSaveStatus('saved'); return; }
+  cloudSaveInFlight = true;
+
+  setSaveStatus('saving');
+
+  // 지금까지 쌓인 변경 필드를 스냅샷으로 가져가고, 진행 중 새 변경은 새 집합에 쌓이게 함
+  const savingKeys = Array.from(dirtyKeys);
+  dirtyKeys = new Set();
+
+  const payload = buildPayload(savingKeys);
+  let lastError = null;
+
+  // 재시도 로직: 지수 백오프
+  for (let attempt = 0; attempt <= RETRY_DELAYS.length; attempt++) {
+    try {
+      await cloudPutOnce(payload, CONFIG.cloudSaveTimeoutMs);
+      // 성공
+      lastCloudSavedAt = payload.savedAt;
+      setSaveStatus('saved');
+      cloudSaveInFlight = false;
+      // 이전에 실패해서 큐에 있던 데이터도 같이 비우기 (현재 저장으로 갱신됐으므로)
+      clearPendingQueue();
+      // 저장 중에 새 변경이 쌓였는데 예약된 저장이 없으면 이어서 저장
+      if (dirtyKeys.size > 0 && !cloudSaveTimer) {
+        cloudSaveTimer = setTimeout(cloudSave, CONFIG.cloudSaveDebounceMs);
+      }
+      // 저장 중 보류됐던 다른 기기 변경사항이 있으면 이제 적용 시도
+      tryApplyPendingCloud();
+      return;
+    } catch (e) {
+      lastError = e;
+      console.warn(`Cloud save attempt ${attempt + 1} failed:`, e);
+      // 마지막 시도가 아니면 대기 후 재시도
+      if (attempt < RETRY_DELAYS.length) {
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAYS[attempt]));
+      }
+    }
+  }
+
+  // 모든 재시도 실패
+  console.error('Cloud save failed after all retries:', lastError);
+  setSaveStatus('error');
+  // 실패한 필드는 다시 dirty로 되돌림 (다음 저장에 포함)
+  markDirty(savingKeys);
+  // 데이터 보존: 큐에 저장 → 다음 접속 시 재전송
+  savePendingQueue(payload);
+  cloudSaveInFlight = false;
+}
+
+// 페이지가 진짜 닫힐 때 - Firebase set 비동기 호출 (페이지 unload 중에도 큐잉됨)
+function cloudSaveBeacon() {
+  // 중복 발동 방지 (pagehide와 beforeunload가 같이 발동될 수 있음)
+  if (beaconFired) return;
+  beaconFired = true;
+  setTimeout(() => { beaconFired = false; }, 3000);
+
+  // 대기 중인 debounce 타이머가 있으면 취소
+  if (cloudSaveTimer) {
+    clearTimeout(cloudSaveTimer);
+    cloudSaveTimer = null;
+  }
+  // 이미 정상 저장 중이면 굳이 또 보낼 필요 없음
+  if (cloudSaveInFlight) {
+    saveLocal();  // 로컬은 그래도 한 번 더 저장
+    return;
+  }
+
+  // 로컬 저장은 동기적으로 확실히 수행
+  saveLocal();
+
+  // 바뀐 게 없으면 보낼 것도 없음
+  if (dirtyKeys.size === 0) return;
+  const beaconKeys = Array.from(dirtyKeys);
+
+  // Firebase가 준비 안 됐으면 큐에 저장만 하고 끝
+  if (!window.fb || !window.fb.ready) {
+    savePendingQueue(buildPayload(beaconKeys));
+    return;
+  }
+
+  const payload = buildPayload(beaconKeys);
+
+  // Firebase set은 백그라운드에서도 어느 정도 보장됨
+  // 실패 시를 대비해 로컬 큐에도 저장
+  try {
+    window.fb.update(window.fb.ref(window.fb.db, CONFIG.fbDataPath), payload)
+      .then(() => {
+        lastCloudSavedAt = payload.savedAt;
+        for (const k of beaconKeys) dirtyKeys.delete(k);
+        clearPendingQueue();
+      })
+      .catch(e => {
+        console.warn('Beacon save failed:', e);
+        savePendingQueue(payload);
+      });
+  } catch (e) {
+    console.warn('Beacon save error:', e);
+    savePendingQueue(payload);
+  }
+}
+
+// 저장 상태 표시 함수
+function setSaveStatus(status) {
+  const el = document.getElementById('save-status-indicator');
+  if (!el) return;
+  if (status === 'saving') {
+    el.textContent = '💾 저장 중...';
+    el.style.background = '#fff3cd';
+    el.style.color = '#856404';
+    el.style.display = 'block';
+  } else if (status === 'saved') {
+    el.textContent = '✓ 저장됨';
+    el.style.background = '#d4edda';
+    el.style.color = '#155724';
+    el.style.display = 'block';
+    // 2초 후 숨김
+    setTimeout(() => { if (el && el.textContent === '✓ 저장됨') el.style.display = 'none'; }, 2000);
+  } else if (status === 'error') {
+    el.textContent = '⚠ 저장 실패 - 재시도 예정';
+    el.style.background = '#f8d7da';
+    el.style.color = '#721c24';
+    el.style.display = 'block';
+  } else if (status === 'conflict') {
+    el.textContent = '⚠ 다른 사용자가 수정 중 - 새로고침 권장';
+    el.style.background = '#ffe5b4';
+    el.style.color = '#7a4500';
+    el.style.display = 'block';
+    // 8초간 표시
+    setTimeout(() => {
+      if (el && el.textContent.startsWith('⚠ 다른')) el.style.display = 'none';
+    }, 8000);
+  }
 }
 
 function applyCloudData(d) {
@@ -1572,7 +1982,10 @@ function applyCloudData(d) {
   state.manualBookings = d.manualBookings || [];
   state.dayMemo = d.dayMemo || {};
   state.opsSections = d.opsSections || [];
+  state.commonAreaCleanings = d.commonAreaCleanings || [];
   state.cleaningLogs = d.cleaningLogs || [];
+  state.archivedBookings = d.archivedBookings || [];
+  state.confirmedBookings = d.confirmedBookings || {};
   return true;
 }
 
@@ -1700,15 +2113,51 @@ async function syncICal(force) {
   state.syncErrors = errors;
   state.syncedAt = new Date().toISOString();
 
-  // 어제까지의 청소를 자동으로 로그에 보존 (변경 있을 때만 저장)
-  const archived = archiveCleaningsToLog();
-  if (archived) {
+  // ─── 지난 예약 보존 ───
+  // 에어비앤비/부킹닷컴 iCal은 지난 예약을 빼고 보내므로,
+  // 새 동기화에서 사라진 과거 예약을 archivedBookings에 보존한다.
+  // 그래야 직원 일정표(달력)에 지난 청소 기록이 그대로 남는다.
+  const archiveChanged = preservePastBookings(newBookings);
+  if (archiveChanged) {
     saveLocal();
-    cloudSaveDebounced();
+    cloudSaveDebounced('archivedBookings');
   }
 
   setStatus(t('statusSynced'), '');
   render();
+}
+
+// 지난 예약 보존: 현재 동기화 결과(newBookings)에 없는 과거 예약을 archivedBookings에 누적
+// 미래/현재 예약은 보존하지 않음 (실시간 iCal이 정확하므로). 오직 "오늘 이전 체크아웃" 예약만 보존.
+function preservePastBookings(newBookings) {
+  if (!state.archivedBookings) state.archivedBookings = [];
+  const today = new Date(); today.setHours(0,0,0,0);
+  const todayStr = fmtDate(today);
+  let changed = false;
+
+  // 기존 아카이브 키 집합 (중복 방지 - O(n) 조회)
+  const archivedKeys = new Set(state.archivedBookings.map(a => `${a.roomId}|${a.checkin}|${a.checkout}`));
+
+  // 1) 이번 동기화에서 보이는 예약 중, 체크아웃이 과거인 것을 아카이브에 보강
+  //    (현재 보이는 동안 미리 저장해두면, 나중에 iCal에서 빠져도 남는다)
+  for (const b of newBookings) {
+    if (b.checkout < todayStr) {  // 이미 체크아웃 지난 예약
+      const key = `${b.roomId}|${b.checkin}|${b.checkout}`;
+      if (!archivedKeys.has(key)) {
+        state.archivedBookings.push({ ...b, archived: true });
+        archivedKeys.add(key);
+        changed = true;
+      }
+    }
+  }
+
+  // 2) 너무 오래된 아카이브는 정리 (180일 이전 체크아웃은 삭제 - 용량 관리)
+  const cutoff = fmtDate(addDays(today, -180));
+  const before = state.archivedBookings.length;
+  state.archivedBookings = state.archivedBookings.filter(a => a.checkout >= cutoff);
+  if (state.archivedBookings.length !== before) changed = true;
+
+  return changed;
 }
 
 function getAllBookings() {
@@ -1732,7 +2181,21 @@ function getAllBookings() {
     if (manualKeys.has(key)) continue;
     result.push({ ...b, isManual: false });
   }
+  // 보존된 지난 예약 병합 (중복 제거)
+  const existingKeys = new Set(result.map(b => `${b.roomId}|${b.checkin}|${b.checkout}`));
+  for (const b of (state.archivedBookings || [])) {
+    const key = `${b.roomId}|${b.checkin}|${b.checkout}`;
+    if (existingKeys.has(key)) continue;
+    existingKeys.add(key);
+    result.push({ ...b, isManual: false });
+  }
   return result;
+}
+
+// 청소 작업 대상 예약만 (1박 차단 추정 예약 제외)
+// 1박 + iCal + 미확정 = 차단으로 추정 → 청소 안 만듦
+function getCleaningBookings() {
+  return getAllBookings().filter(b => !isLikelyBlock(b));
 }
 
 function getRoom(roomId) { return state.rooms.find(r => r.id === roomId); }
@@ -1761,11 +2224,11 @@ function getCleaningStatus(booking) {
   return 'earlier';
 }
 
-// 특정 날짜에 청소 예정인 예약 모두 가져오기
+// 특정 날짜에 청소 예정인 예약 모두 가져오기 (1박 차단 추정 제외)
 function cleaningTasksForDate(date) {
   const dStr = fmtDate(date);
   const result = [];
-  const all = getAllBookings();
+  const all = getCleaningBookings();
   for (const b of all) {
     const cleanDate = getCleaningDate(b);
     if (!cleanDate) continue;
@@ -1776,77 +2239,44 @@ function cleaningTasksForDate(date) {
 }
 
 // ════════════════════════════════════════════════════════════
-// 청소 기록 - 지나간 날의 청소 정보를 자동 보존
+// 공용공간 청소 (체크아웃 없이 추가하는 청소 일정)
 // ════════════════════════════════════════════════════════════
-const CLEANING_LOG_KEEP_DAYS = 14; // 14일치 보관
+// 각 항목은 "task" 객체로 통일된 인터페이스를 가짐:
+//   { kind: 'common', id, date, branchId, label, cleanerId, memo }
+// 기존 booking과 구분하기 위해 kind 필드를 사용
 
-// 어제까지의 청소 정보를 cleaningLogs에 자동 기록
-// (오늘이 지나간 날들을 매번 처리)
-// 마지막으로 archive 풀스캔한 날짜 (메모리)
-let lastArchiveDay = null;
+// 특정 날짜의 공용공간 청소 작업 가져오기
+function commonCleaningsForDate(date) {
+  const dStr = fmtDate(date);
+  const list = state.commonAreaCleanings || [];
+  return list.filter(c => c.date === dStr);
+}
 
-function archiveCleaningsToLog() {
-  if (!state.cleaningLogs) state.cleaningLogs = [];
+// 공용공간 청소를 booking-like task 형태로 정규화 (renderEvent와 호환)
+// noteKey와 충돌하지 않게 'common|<id>' 형태의 고유 키 사용
+function commonCleaningToTask(c) {
+  return {
+    kind: 'common',
+    id: c.id,
+    date: c.date,
+    branchId: c.branchId,
+    label: c.label || '',
+    cleanerId: c.cleanerId || null,
+    memo: c.memo || '',
+  };
+}
 
-  const today = new Date(); today.setHours(0,0,0,0);
-  const todayStr = fmtDate(today);
-  const cutoff = addDays(today, -CLEANING_LOG_KEEP_DAYS);
-  const cutoffStr = fmtDate(cutoff);
-
-  let changed = false;
-
-  // 1. 오래된 기록 삭제 (14일 이전) - 매번 검사
-  const before = state.cleaningLogs.length;
-  state.cleaningLogs = state.cleaningLogs.filter(log => log.date >= cutoffStr);
-  if (state.cleaningLogs.length !== before) changed = true;
-
-  // 2. 어제 데이터 추가 - 새 날짜 됐을 때만 풀스캔, 아니면 어제 하나만
-  const needFullScan = (lastArchiveDay !== todayStr);
-
-  const existingKeys = new Set(state.cleaningLogs.map(l => `${l.date}|${l.roomId}|${l.checkin}`));
-
-  // 새 날짜 됐으면 14일치 풀스캔, 아니면 어제만 (혹시 누락 보강용)
-  const scanDays = needFullScan ? CLEANING_LOG_KEEP_DAYS : 1;
-
-  for (let i = 1; i <= scanDays; i++) {
-    const date = addDays(today, -i);
-    const dStr = fmtDate(date);
-    if (dStr < cutoffStr) break;
-
-    const tasks = cleaningTasksForDate(date);
-    for (const b of tasks) {
-      const key = `${dStr}|${b.roomId}|${b.checkin}`;
-      if (existingKeys.has(key)) continue;
-
-      const room = getRoom(b.roomId);
-      const branch = room ? getBranch(room.branchId) : null;
-      const note = getNote(b);
-      const cleaner = note.cleanerId ? getStaff(note.cleanerId) : null;
-
-      state.cleaningLogs.push({
-        date: dStr,
-        roomId: b.roomId,
-        checkin: b.checkin,
-        checkout: b.checkout,
-        roomName: room ? room.name : '?',
-        branchId: room ? room.branchId : null,
-        branchName: branch ? branch.name : '',
-        branchColor: branch ? branch.color : '#999',
-        cleanerId: note.cleanerId || null,
-        cleanerName: cleaner ? cleaner.name : '',
-        cleanerColor: cleaner ? cleaner.color : '#a89880',
-        memo: note.memo || '',
-      });
-      existingKeys.add(key);
-      changed = true;
-    }
+// 특정 날짜 모든 청소 작업 (체크아웃 청소 + 공용공간 청소)
+// 반환값: [{ type: 'booking', booking } | { type: 'common', common }]
+function allCleaningsForDate(date) {
+  const result = [];
+  for (const b of cleaningTasksForDate(date)) {
+    result.push({ type: 'booking', booking: b });
   }
-
-  if (changed) {
-    state.cleaningLogs.sort((a, b) => b.date.localeCompare(a.date));
+  for (const c of commonCleaningsForDate(date)) {
+    result.push({ type: 'common', common: c });
   }
-  lastArchiveDay = todayStr;
-  return changed; // 변경 여부 반환
+  return result;
 }
 
 function setStatus(text, cls) {
@@ -1867,16 +2297,18 @@ function renderErrorBanner() {
 function render() {
   try {
     const hasRooms = state.rooms.length > 0;
+    const hasBranches = state.branches.length > 0;
     $('tabs').style.display = hasRooms && state.view !== 'setup' ? '' : 'none';
     $('btn-add-booking').style.display = hasRooms && state.view !== 'setup' ? '' : 'none';
+    $('btn-add-common').style.display = hasBranches && state.view !== 'setup' ? '' : 'none';
     renderErrorBanner();
     if (state.view === 'setup') return renderSetup();
     if (!hasRooms) return renderFirstSetup();
     if (state.view === 'today') return renderToday();
     if (state.view === 'tomorrow') return renderTomorrow();
+    if (state.view === 'dayDetail') return renderDayDetailView();
     if (state.view === 'bystaff') return renderByStaff();
     if (state.view === 'week') return renderTimeline();
-    if (state.view === 'logs') return renderLogs();
     if (state.view === 'ops') return renderOps();
     if (state.view === 'all') return renderAll();
   } catch (e) {
@@ -1907,11 +2339,68 @@ function renderTomorrow() {
   renderDayDetail(addDays(today, 1), t('tomorrowLabel'), 'tomorrow', t('tomorrowTag'));
 }
 
+// 직원별 화면에서 날짜 선택 시 진입하는 상세 화면
+// 기존 renderDayDetail을 그대로 재사용하고, 끝에 뒤로가기 버튼만 추가
+function renderDayDetailView() {
+  if (!state.dayDetailDate) {
+    // 날짜 없으면 안전하게 직원별로 복귀
+    state.view = 'bystaff';
+    return render();
+  }
+  const date = parseDate(state.dayDetailDate);
+  if (!date) {
+    state.view = 'bystaff';
+    return render();
+  }
+  const today = new Date(); today.setHours(0,0,0,0);
+  const isToday = sameDate(date, today);
+  const isTomorrow = sameDate(date, addDays(today, 1));
+
+  // 날짜에 맞는 라벨/태그 선택 (오늘이면 오늘로, 내일이면 내일로, 그 외엔 일반 라벨)
+  let dayLabel, tagClass, tagText;
+  if (isToday) {
+    dayLabel = t('todayLabel');
+    tagClass = 'today';
+    tagText = t('todayTag');
+  } else if (isTomorrow) {
+    dayLabel = t('tomorrowLabel');
+    tagClass = 'tomorrow';
+    tagText = t('tomorrowTag');
+  } else {
+    // 기타 날짜: "11/15(토)" 같은 라벨 사용
+    const dowText = currentLang === 'ko' ? dowKR(date) : t('dow' + ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][date.getDay()]);
+    const md = `${date.getMonth() + 1}/${date.getDate()}`;
+    dayLabel = t('dayDetailLabel', md, dowText);
+    // 과거 / 미래 구분 (CSS 클래스는 기존 today/tomorrow 재사용해서 안전하게)
+    const isPast = date < today;
+    tagClass = isPast ? 'tomorrow' : 'today';  // 색상만 비슷하게
+    tagText = '';  // 별도 태그 텍스트 없음
+  }
+
+  renderDayDetail(date, dayLabel, tagClass, tagText);
+  // 메인 화면 위에 뒤로가기 버튼 삽입 (renderDayDetail이 main.innerHTML로 모두 채운 뒤)
+  const backLabel = t('dayDetailBack');
+  const backBar = document.createElement('div');
+  backBar.className = 'daydetail-backbar';
+  backBar.innerHTML = `<button class="daydetail-back-btn" id="btn-daydetail-back">${escapeHtml(backLabel)}</button>`;
+  main.insertBefore(backBar, main.firstChild);
+  const btn = $('btn-daydetail-back');
+  if (btn) btn.onclick = () => {
+    const back = state.dayDetailFromView || 'bystaff';
+    state.view = back;
+    state.dayDetailDate = null;
+    state.dayDetailFromView = null;
+    render();
+  };
+}
+
 function renderDayDetail(date, dayLabel, tagClass, tagText) {
   const dStr = fmtDate(date);
-  const all = getAllBookings();
+  // 1박 차단 추정 예약은 제외 (청소·체크인·체류 모두에서 숨김)
+  const all = getAllBookings().filter(b => !isLikelyBlock(b));
   const checkoutsToday = [];
   const cleaningsToday = cleaningTasksForDate(date);
+  const commonCleanings = commonCleaningsForDate(date);
   const checkins = [];
   const stays = [];
   for (const b of all) {
@@ -1932,7 +2421,18 @@ function renderDayDetail(date, dayLabel, tagClass, tagText) {
     <span class="day-tag ${tagClass}">${tagText}</span>
   </div>`;
 
-  html += renderSection(t('todayCleaning', dayLabel), cleaningsToday, 'checkout');
+  // 청소 섹션: 체크아웃 청소 + 공용공간 청소를 합쳐서 표시
+  const totalCleaningCount = cleaningsToday.length + commonCleanings.length;
+  if (totalCleaningCount > 0) {
+    html += `<div class="section">
+      <div class="section-title">${t('todayCleaning', dayLabel)} <span class="section-count">${totalCleaningCount}</span></div>
+      ${cleaningsToday.map(b => renderEvent(b, 'checkout')).join('')}
+      ${commonCleanings.map(c => renderCommonCleaning(c)).join('')}
+    </div>`;
+  } else {
+    // 빈 상태도 기존과 동일하게 유지
+    html += renderSection(t('todayCleaning', dayLabel), [], 'checkout');
+  }
 
   const movedCheckouts = checkoutsToday.filter(b => {
     const status = getCleaningStatus(b);
@@ -1986,15 +2486,18 @@ function attachDayMemoHandler(dateStr) {
   input.oninput = () => {
     autoResize();
     if (savedLabel) savedLabel.textContent = t('memoTyping');
+    // 입력 즉시 state에 반영 (지연 반영으로 인한 유실 방지)
+    const val = input.value.trim();
+    if (!state.dayMemo) state.dayMemo = {};
+    if (val) state.dayMemo[dateStr] = val;
+    else delete state.dayMemo[dateStr];
+    markDirty(['dayMemo']);
+    // 저장(로컬+클라우드)만 디바운스
     if (saveTimer) clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
-      const val = input.value.trim();
-      if (!state.dayMemo) state.dayMemo = {};
-      if (val) state.dayMemo[dateStr] = val;
-      else delete state.dayMemo[dateStr];
       saveLocal();
-      cloudSaveDebounced();
-      if (savedLabel) savedLabel.textContent = val ? t('memoSaved') : '';
+      cloudSaveDebounced('dayMemo');
+      if (savedLabel) savedLabel.textContent = input.value.trim() ? t('memoSaved') : '';
     }, 400);
   };
 }
@@ -2083,6 +2586,37 @@ function renderEvent(booking, type) {
   </div>`;
 }
 
+// 공용공간 청소 카드 렌더링 (기존 renderEvent와 비슷한 형태)
+function renderCommonCleaning(common) {
+  const branch = getBranch(common.branchId);
+  const branchColor = branch ? branch.color : '#999';
+  const branchTag = branch
+    ? `<span class="branch-tag" style="background:${branchColor};">${escapeHtml(branch.name)}</span>`
+    : '';
+  const badge = `<span class="badge common">${t('commonBadge')}</span>`;
+  const labelText = common.label || t('commonLabelDefault');
+
+  let cleanerHtml = '';
+  if (common.cleanerId) {
+    const s = getStaff(common.cleanerId);
+    if (s) cleanerHtml = `<div class="cleaner-tag" style="background:${s.color};">🧹 ${escapeHtml(s.name)}</div>`;
+  } else {
+    cleanerHtml = `<div class="cleaner-tag unassigned">${t('cleanerUnassigned')}</div>`;
+  }
+  const memoHtml = common.memo ? `<div class="memo-tag">📝 ${escapeHtml(common.memo)}</div>` : '';
+
+  // data-common-id로 식별 (기존 data-key와 다른 속성 사용 → 클릭 핸들러에서 분기)
+  return `<div class="event" style="border-left-color:${branchColor};" data-common-id="${escapeHtml(common.id)}">
+    <div class="event-row">
+      ${badge}
+      ${branchTag}
+      <span class="room-name">${escapeHtml(labelText)}</span>
+    </div>
+    ${cleanerHtml}
+    ${memoHtml}
+  </div>`;
+}
+
 // ════════════════════════════════════════════════════════════
 // 직원별 청소 달력
 // ════════════════════════════════════════════════════════════
@@ -2102,7 +2636,7 @@ function renderByStaff() {
       || (state.selectedStaffId !== '__unassigned__'
           && state.selectedStaffId !== '__all__'
           && !getStaff(state.selectedStaffId))) {
-    state.selectedStaffId = state.staff[0].id;
+    state.selectedStaffId = '__all__';
   }
   // 기본값: 이번 달
   if (!state.bystaffMonth) {
@@ -2155,17 +2689,23 @@ function renderByStaffSingle(staffSelector) {
   const daysInMonth = new Date(m.getFullYear(), m.getMonth()+1, 0).getDate();
   const today = new Date(); today.setHours(0,0,0,0);
 
-  // 각 날짜에 해당 직원의 청소 작업 수집
+  // 각 날짜에 해당 직원의 청소 작업 수집 (체크아웃 청소 + 공용공간 청소)
   const cleaningsByDate = {};
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(m.getFullYear(), m.getMonth(), d);
     const dStr = fmtDate(date);
-    const tasks = cleaningTasksForDate(date).filter(b => {
+    const bookingTasks = cleaningTasksForDate(date).filter(b => {
       const note = getNote(b);
       const cid = note.cleanerId || '__unassigned__';
       return cid === state.selectedStaffId;
     });
-    if (tasks.length > 0) cleaningsByDate[dStr] = tasks;
+    const commonTasks = commonCleaningsForDate(date).filter(c => {
+      const cid = c.cleanerId || '__unassigned__';
+      return cid === state.selectedStaffId;
+    });
+    if (bookingTasks.length > 0 || commonTasks.length > 0) {
+      cleaningsByDate[dStr] = { bookings: bookingTasks, commons: commonTasks };
+    }
   }
 
   // 달력 셀
@@ -2178,12 +2718,12 @@ function renderByStaffSingle(staffSelector) {
     const dStr = fmtDate(date);
     const isToday = sameDate(date, today);
     const isPast = date < today;
-    const tasks = cleaningsByDate[dStr] || [];
+    const tasks = cleaningsByDate[dStr] || { bookings: [], commons: [] };
     const dow = date.getDay();
     const dowClass = dow === 0 ? 'sun' : (dow === 6 ? 'sat' : '');
 
     let tasksHtml = '';
-    tasks.forEach(b => {
+    tasks.bookings.forEach(b => {
       const room = getRoom(b.roomId);
       const branch = room ? getBranch(room.branchId) : null;
       const branchColor = branch ? branch.color : '#999';
@@ -2195,8 +2735,19 @@ function renderByStaffSingle(staffSelector) {
         ${branchName ? `<span class="bs-task-branch">${escapeHtml(branchName)}</span> ` : ''}${escapeHtml(roomName)}
       </div>`;
     });
+    tasks.commons.forEach(c => {
+      const branch = getBranch(c.branchId);
+      const branchColor = branch ? branch.color : '#999';
+      const branchName = branch ? branch.name : '';
+      const labelText = c.label || t('commonLabelDefault');
+      const titleText = `${branchName ? branchName + ' / ' : ''}${t('commonBadge')}${c.label ? ' · ' + c.label : ''}`;
+      tasksHtml += `<div class="bs-task event" data-common-id="${escapeHtml(c.id)}" 
+        style="background:${branchColor};" title="${escapeHtml(titleText)}">
+        ${branchName ? `<span class="bs-task-branch">${escapeHtml(branchName)}</span> ` : ''}🧹 ${escapeHtml(labelText)}
+      </div>`;
+    });
 
-    cells += `<div class="bs-cell ${isToday ? 'today' : ''} ${isPast ? 'past' : ''} ${dowClass}">
+    cells += `<div class="bs-cell ${isToday ? 'today' : ''} ${isPast ? 'past' : ''} ${dowClass}" data-date="${dStr}">
       <div class="bs-daynum">${d}</div>
       ${tasksHtml}
     </div>`;
@@ -2212,6 +2763,7 @@ function renderByStaffSingle(staffSelector) {
       <h3 class="bs-month-title">${monthLabel}</h3>
       <button class="btn-icon" id="bs-next">▶</button>
     </div>
+    <div class="bs-drag-help">${currentLang === 'en' ? 'Tip: press and hold a card, then drag it to another day to move the cleaning.' : '💡 카드를 길게 눌러 다른 날짜로 끌면 청소일이 옮겨져요'}</div>
     ${state.selectedStaffId === '__unassigned__' ? `<div class="bs-summary">
       <div class="bs-summary-help">${t('unassignedHelp')}</div>
     </div>` : ''}
@@ -2247,13 +2799,16 @@ function renderByStaffAll(staffSelector) {
   const daysInMonth = new Date(m.getFullYear(), m.getMonth()+1, 0).getDate();
   const today = new Date(); today.setHours(0,0,0,0);
 
-  // 각 날짜의 모든 청소 작업 수집 (필터 없이)
+  // 각 날짜의 모든 청소 작업 수집 (필터 없이) - 체크아웃 청소 + 공용공간 청소
   const cleaningsByDate = {};
   for (let d = 1; d <= daysInMonth; d++) {
     const date = new Date(m.getFullYear(), m.getMonth(), d);
     const dStr = fmtDate(date);
-    const tasks = cleaningTasksForDate(date);
-    if (tasks.length > 0) cleaningsByDate[dStr] = tasks;
+    const bookingTasks = cleaningTasksForDate(date);
+    const commonTasks = commonCleaningsForDate(date);
+    if (bookingTasks.length > 0 || commonTasks.length > 0) {
+      cleaningsByDate[dStr] = { bookings: bookingTasks, commons: commonTasks };
+    }
   }
 
   // 달력 셀
@@ -2266,12 +2821,12 @@ function renderByStaffAll(staffSelector) {
     const dStr = fmtDate(date);
     const isToday = sameDate(date, today);
     const isPast = date < today;
-    const tasks = cleaningsByDate[dStr] || [];
+    const tasks = cleaningsByDate[dStr] || { bookings: [], commons: [] };
     const dow = date.getDay();
     const dowClass = dow === 0 ? 'sun' : (dow === 6 ? 'sat' : '');
 
     let tasksHtml = '';
-    tasks.forEach(b => {
+    tasks.bookings.forEach(b => {
       const room = getRoom(b.roomId);
       const branch = room ? getBranch(room.branchId) : null;
       const branchColor = branch ? branch.color : '#999';
@@ -2302,8 +2857,34 @@ function renderByStaffAll(staffSelector) {
         ${branchDot}${escapeHtml(label)}
       </div>`;
     });
+    tasks.commons.forEach(c => {
+      const branch = getBranch(c.branchId);
+      const branchColor = branch ? branch.color : '#999';
+      const cleanerId = c.cleanerId;
+      let bgColor = '#999';
+      let label = `🧹 ${c.label || t('commonLabelDefault')}`;
+      let isUnassigned = false;
+      if (cleanerId) {
+        const s = getStaff(cleanerId);
+        if (s) {
+          bgColor = s.color;
+          label = `${s.name} · 🧹 ${c.label || t('commonLabelDefault')}`;
+        }
+      } else {
+        isUnassigned = true;
+      }
+      const branchDot = `<span class="bs-task-dot" style="background:${branchColor};"></span>`;
+      const titleText = `${branch ? branch.name + ' / ' : ''}${t('commonBadge')}${c.label ? ' · ' + c.label : ''}${cleanerId ? ' · ' + (getStaff(cleanerId)?.name || '') : ' · 미지정'}`;
 
-    cells += `<div class="bs-cell ${isToday ? 'today' : ''} ${isPast ? 'past' : ''} ${dowClass}">
+      tasksHtml += `<div class="bs-task event ${isUnassigned ? 'bs-task-unassigned' : ''}" 
+        data-common-id="${escapeHtml(c.id)}" 
+        style="${isUnassigned ? '' : `background:${bgColor};`}" 
+        title="${escapeHtml(titleText)}">
+        ${branchDot}${escapeHtml(label)}
+      </div>`;
+    });
+
+    cells += `<div class="bs-cell ${isToday ? 'today' : ''} ${isPast ? 'past' : ''} ${dowClass}" data-date="${dStr}">
       <div class="bs-daynum">${d}</div>
       ${tasksHtml}
     </div>`;
@@ -2319,6 +2900,7 @@ function renderByStaffAll(staffSelector) {
       <h3 class="bs-month-title">${monthLabel}</h3>
       <button class="btn-icon" id="bs-next">▶</button>
     </div>
+    <div class="bs-drag-help">${currentLang === 'en' ? 'Tip: press and hold a card, then drag it to another day to move the cleaning.' : '💡 카드를 길게 눌러 다른 날짜로 끌면 청소일이 옮겨져요'}</div>
     <div class="bs-scroll"><div class="bs-grid">
       <div class="bs-dow sun">${t('dowSun')}</div>
       <div class="bs-dow">${t('dowMon')}</div>
@@ -2431,17 +3013,25 @@ function renderTimelineRow(room, branch, dates, allBookings, numDays, minWidth) 
     const leftPct = (startIdx / numDays) * 100;
     const widthPct = ((endIdx - startIdx + 1) / numDays) * 100;
     const note = getNote(b);
+    const block = isLikelyBlock(b);  // 1박 차단 추정 여부
     let cleanerDot = '';
-    if (note.cleanerId) {
+    if (note.cleanerId && !block) {
       const s = getStaff(note.cleanerId);
       if (s) cleanerDot = `<span class="tl-bar-cleaner" style="background:${s.color};" title="${escapeHtml(s.name)}"></span>`;
     }
     const platform = ({ airbnb:'🏠', booking:'🔵', agoda:'🟠', vrbo:'🟢', direct:'📝', other:'📅' })[b.platform] || '🏠';
+    // 1박 차단 추정: 희미하게(반투명+점선) 표시, 탭하면 진짜 예약으로 확정 가능
+    const blockStyle = block
+      ? `opacity:0.4; border:1.5px dashed rgba(255,255,255,0.8); background:#9e9e9e;`
+      : `background:${branch.color};`;
+    const titleText = block
+      ? `${room.name}: ${b.checkin}~${b.checkout} (1박 - 차단 추정, 탭하여 확인)`
+      : `${room.name}: ${b.checkin} ~ ${b.checkout}`;
     barsHtml += `<div class="tl-bar event"
-      style="left:calc(100px + (100% - 100px) * ${leftPct / 100}); width:calc((100% - 100px) * ${widthPct / 100} - 2px); background:${branch.color};"
+      style="left:calc(100px + (100% - 100px) * ${leftPct / 100}); width:calc((100% - 100px) * ${widthPct / 100} - 2px); ${blockStyle}"
       data-key="${escapeHtml(noteKey(b))}"
-      title="${escapeHtml(room.name)}: ${b.checkin} ~ ${b.checkout}">
-      <span>${platform}</span>
+      title="${escapeHtml(titleText)}">
+      <span>${block ? '🚫' : platform}</span>
       ${cleanerDot}
     </div>`;
   });
@@ -2457,83 +3047,6 @@ function renderTimelineRow(room, branch, dates, allBookings, numDays, minWidth) 
 // ════════════════════════════════════════════════════════════
 // 운영정보 (Ops) - 비밀번호, 공유사항 등
 // ════════════════════════════════════════════════════════════
-// ════════════════════════════════════════════════════════════
-// 청소 기록 (Logs) - 지난 14일 자동 보존
-// ════════════════════════════════════════════════════════════
-function renderLogs() {
-  // 화면 진입 시 한 번 더 archive (변경 있을 때만 저장)
-  const archived = archiveCleaningsToLog();
-  if (archived) {
-    saveLocal();
-    cloudSaveDebounced();
-  }
-
-  const logs = state.cleaningLogs || [];
-
-  let html = `<h2 style="font-family:'Georgia',serif; font-size:22px; margin-bottom:6px;">${t('logsTitle')}</h2>
-    <p style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">${t('logsSub')}</p>`;
-
-  if (logs.length === 0) {
-    html += `<div class="info-msg">${t('logsEmpty')}</div>`;
-    main.innerHTML = html;
-    return;
-  }
-
-  // 날짜별로 그룹핑
-  const byDate = {};
-  logs.forEach(log => {
-    if (!byDate[log.date]) byDate[log.date] = [];
-    byDate[log.date].push(log);
-  });
-  const dates = Object.keys(byDate).sort().reverse(); // 최근부터
-
-  dates.forEach(dStr => {
-    const date = parseDate(dStr);
-    const dowKey = ['dowSun','dowMon','dowTue','dowWed','dowThu','dowFri','dowSat'][date.getDay()];
-    const dowText = currentLang === 'ko' ? `${dowKR(date)}요일` : t(dowKey);
-    const items = byDate[dStr];
-
-    html += `<div class="day-header">
-      <span class="day-date">${prettyDate(date)}</span>
-      <span class="day-dow">${dowText}</span>
-      <span class="day-tag" style="background:#8a7860">${items.length}</span>
-    </div>`;
-
-    html += `<div class="logs-day">`;
-    // 담당자별 그룹핑 (시각적으로 깔끔)
-    const byCleanerId = {};
-    items.forEach(log => {
-      const k = log.cleanerId || '__none__';
-      if (!byCleanerId[k]) byCleanerId[k] = [];
-      byCleanerId[k].push(log);
-    });
-    Object.keys(byCleanerId).forEach(k => {
-      const arr = byCleanerId[k];
-      const first = arr[0];
-      const cleanerName = first.cleanerName || t('logsCleanerNone');
-      const cleanerColor = first.cleanerColor || '#a89880';
-      const isUnassigned = !first.cleanerId;
-
-      html += `<div class="logs-group" style="border-left:4px solid ${cleanerColor};">
-        <div class="logs-cleaner" style="${isUnassigned ? 'background:#f5f0e8; color:#8a7860;' : `background:${cleanerColor}; color:white;`}">
-          🧹 ${escapeHtml(cleanerName)} <span class="logs-count">${arr.length}</span>
-        </div>
-        <div class="logs-rooms">`;
-      arr.forEach(log => {
-        html += `<div class="logs-room">
-          <span class="branch-tag" style="background:${log.branchColor};">${escapeHtml(log.branchName || '')}</span>
-          <span class="logs-room-name">${escapeHtml(log.roomName)}</span>
-          ${log.memo ? `<span class="logs-memo">📝 ${escapeHtml(log.memo)}</span>` : ''}
-        </div>`;
-      });
-      html += `</div></div>`;
-    });
-    html += `</div>`;
-  });
-
-  main.innerHTML = html;
-}
-
 function renderOps() {
   let html = `<h2 style="font-family:'Georgia',serif; font-size:22px; margin-bottom:6px;">${t('opsTitle')}</h2>
     <p style="font-size:12px; color:var(--ink-soft); margin-bottom:14px;">${t('opsSub')}</p>`;
@@ -2572,16 +3085,18 @@ function renderOps() {
     autoResize();
     setTimeout(autoResize, 0);
     let saveTimer = null;
+    const idx = +textarea.closest('[data-ops-idx]').dataset.opsIdx;
     textarea.oninput = () => {
       autoResize();
+      // 입력 즉시 state에 반영 (지연 반영으로 인한 유실 방지)
+      if (state.opsSections[idx]) {
+        state.opsSections[idx].content = textarea.value;
+        markDirty(['opsSections']);
+      }
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
-        const idx = +textarea.closest('[data-ops-idx]').dataset.opsIdx;
-        if (state.opsSections[idx]) {
-          state.opsSections[idx].content = textarea.value;
-          saveLocal();
-          cloudSaveDebounced();
-        }
+        saveLocal();
+        cloudSaveDebounced('opsSections');
       }, 400);
     };
   });
@@ -2589,15 +3104,17 @@ function renderOps() {
   // 제목 입력
   document.querySelectorAll('.ops-title-input').forEach(input => {
     let saveTimer = null;
+    const idx = +input.closest('[data-ops-idx]').dataset.opsIdx;
     input.oninput = () => {
+      // 입력 즉시 state에 반영
+      if (state.opsSections[idx]) {
+        state.opsSections[idx].title = input.value;
+        markDirty(['opsSections']);
+      }
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = setTimeout(() => {
-        const idx = +input.closest('[data-ops-idx]').dataset.opsIdx;
-        if (state.opsSections[idx]) {
-          state.opsSections[idx].title = input.value;
-          saveLocal();
-          cloudSaveDebounced();
-        }
+        saveLocal();
+        cloudSaveDebounced('opsSections');
       }, 400);
     };
   });
@@ -2609,7 +3126,7 @@ function renderOps() {
       if (!confirm(t('opsDeleteConfirm'))) return;
       state.opsSections.splice(idx, 1);
       saveLocal();
-      cloudSaveDebounced();
+      cloudSaveDebounced('opsSections');
       render();
     };
   });
@@ -2622,7 +3139,7 @@ function renderOps() {
       content: '',
     });
     saveLocal();
-    cloudSaveDebounced();
+    cloudSaveDebounced('opsSections');
     render();
   };
 }
@@ -2635,7 +3152,7 @@ function renderAll() {
     const d = addDays(today, i);
     const dStr = fmtDate(d);
     const cleanings = cleaningTasksForDate(d);
-    const all = getAllBookings();
+    const all = getAllBookings().filter(b => !isLikelyBlock(b));
     const checkins = all.filter(b => b.checkin === dStr);
     if (cleanings.length === 0 && checkins.length === 0) continue;
     any = true;
@@ -2782,23 +3299,7 @@ function attachSetupHandlers() {
   document.querySelectorAll('[data-saction="del"]').forEach(btn => {
     btn.onclick = () => {
       const idx = +btn.closest('[data-stidx]').dataset.stidx;
-      const removed = state.staff[idx];
-      const name = (removed && removed.name) || '';
-      const msg = currentLang === 'en'
-        ? `Delete "${name}"?\nTheir past cleaning history and assignments will also be removed.`
-        : `"${name}" 직원을 삭제할까요?\n지난 청소 기록과 배정된 담당도 함께 지워집니다.`;
-      if (!confirm(msg)) return;
       state.staff.splice(idx, 1);
-      if (removed) {
-        // 이 직원의 청소 기록 삭제
-        state.cleaningLogs = (state.cleaningLogs || []).filter(l => l.cleanerId !== removed.id);
-        // 예약에 배정된 담당자 해제 (미지정으로)
-        Object.keys(state.notes).forEach(k => {
-          if (state.notes[k] && state.notes[k].cleanerId === removed.id) state.notes[k].cleanerId = null;
-        });
-        saveLocal();
-        cloudSaveDebounced();
-      }
       if (state.staff.length === 0) {
         state.staff.push({ id: 'st_' + Date.now(), name: '', color: '#1e88e5' });
       }
@@ -2910,6 +3411,7 @@ async function saveSetupHandler() {
   state.rooms = Object.values(byRoomName);
 
   saveLocal();
+  markDirty(['branches', 'rooms', 'staff']);
   cloudSyncPaused = true;
   await cloudSave();
   cloudSyncPaused = false;
@@ -2945,6 +3447,26 @@ function openBookingModal(key) {
   const all = getAllBookings();
   const found = all.find(b => noteKey(b) === key);
   $('bm-delete').style.display = (found && found.isManual) ? '' : 'none';
+
+  // 1박 예약(차단 추정) 처리 영역
+  const isOneNight = found && bookingNights(found) === 1 && !found.isManual;
+  const isConfirmed = state.confirmedBookings && state.confirmedBookings[key];
+  if (isOneNight && !isConfirmed) {
+    // 차단으로 추정 중 → 확정 버튼 표시, 청소 설정 숨김
+    $('bm-block-notice').style.display = '';
+    $('bm-unconfirm-notice').style.display = 'none';
+    $('bm-cleaning-field').style.display = 'none';
+  } else if (isOneNight && isConfirmed) {
+    // 진짜 예약으로 확정됨 → 해제 버튼 표시, 청소 설정 보임
+    $('bm-block-notice').style.display = 'none';
+    $('bm-unconfirm-notice').style.display = '';
+    $('bm-cleaning-field').style.display = '';
+  } else {
+    // 일반 예약 (2박 이상 또는 수동)
+    $('bm-block-notice').style.display = 'none';
+    $('bm-unconfirm-notice').style.display = 'none';
+    $('bm-cleaning-field').style.display = '';
+  }
 
   $('booking-modal').classList.add('open');
 }
@@ -3020,6 +3542,26 @@ function renderCleanerChips(containerId, selectedId, onSelect) {
   });
 }
 
+// 1박 예약을 "진짜 예약"으로 확정 (청소 일정에 추가)
+$('bm-confirm-real').onclick = () => {
+  if (!state.bookingModalKey) return;
+  if (!state.confirmedBookings) state.confirmedBookings = {};
+  state.confirmedBookings[state.bookingModalKey] = true;
+  saveLocal();
+  cloudSaveDebounced('confirmedBookings');
+  // 모달 다시 그려서 청소 설정 보이게
+  openBookingModal(state.bookingModalKey);
+  render();
+};
+// 다시 차단으로 처리 (청소 일정에서 숨김)
+$('bm-mark-block').onclick = () => {
+  if (!state.bookingModalKey) return;
+  if (state.confirmedBookings) delete state.confirmedBookings[state.bookingModalKey];
+  saveLocal();
+  cloudSaveDebounced('confirmedBookings');
+  openBookingModal(state.bookingModalKey);
+  render();
+};
 $('bm-cancel').onclick = closeBookingModal;
 $('bm-save').onclick = () => {
   if (!state.bookingModalKey) return;
@@ -3040,7 +3582,7 @@ $('bm-save').onclick = () => {
     };
   }
   saveLocal();
-  cloudSaveDebounced();
+  cloudSaveDebounced('notes');
   closeBookingModal();
   render();
 };
@@ -3053,7 +3595,7 @@ $('bm-delete').onclick = () => {
     state.manualBookings = state.manualBookings.filter(m => m.id !== found.manualId);
     delete state.notes[key];
     saveLocal();
-    cloudSaveDebounced();
+    cloudSaveDebounced('manualBookings', 'notes');
   }
   closeBookingModal();
   render();
@@ -3150,7 +3692,7 @@ $('mm-save').onclick = () => {
   }
 
   saveLocal();
-  cloudSaveDebounced();
+  cloudSaveDebounced('manualBookings', 'notes');
   closeManualModal();
   render();
 };
@@ -3158,28 +3700,133 @@ $('manual-modal').onclick = (e) => {
   if (e.target.id === 'manual-modal') closeManualModal();
 };
 
-document.addEventListener('click', (e) => {
-  const ev = e.target.closest('.event[data-key]');
-  if (!ev) return;
-  const key = ev.dataset.key;
-  const all = getAllBookings();
-  const b = all.find(x => noteKey(x) === key);
-  if (b && b.isManual) {
-    openManualModal(b.manualId);
+// ════════════════════════════════════════════════════════════
+// 공용공간 청소 모달
+// ════════════════════════════════════════════════════════════
+function openCommonModal(existingId) {
+  state.commonEditingId = existingId || null;
+  $('cm-title').textContent = existingId ? t('commonModalEditTitle') : t('commonModalTitle');
+
+  const sel = $('cm-branch');
+  sel.innerHTML = state.branches.map(b => 
+    `<option value="${b.id}">${escapeHtml(b.name)}</option>`
+  ).join('');
+
+  if (existingId) {
+    const c = (state.commonAreaCleanings || []).find(x => x.id === existingId);
+    if (c) {
+      sel.value = c.branchId;
+      $('cm-date').value = c.date;
+      $('cm-label').value = c.label || '';
+      $('cm-memo').value = c.memo || '';
+      state.cleanerSelectedId = c.cleanerId || null;
+    }
+    $('cm-delete').style.display = '';
   } else {
-    openBookingModal(key);
+    const today = new Date();
+    $('cm-date').value = fmtDate(today);
+    $('cm-label').value = '';
+    $('cm-memo').value = '';
+    state.cleanerSelectedId = null;
+    $('cm-delete').style.display = 'none';
+  }
+
+  renderCleanerChips('cm-cleaners', state.cleanerSelectedId, (sid) => {
+    state.cleanerSelectedId = sid;
+  });
+  $('common-modal').classList.add('open');
+}
+
+function closeCommonModal() {
+  $('common-modal').classList.remove('open');
+  state.commonEditingId = null;
+}
+
+$('cm-cancel').onclick = closeCommonModal;
+$('cm-save').onclick = () => {
+  const branchId = $('cm-branch').value;
+  const date = $('cm-date').value;
+  const label = $('cm-label').value.trim();
+  const memo = $('cm-memo').value.trim();
+  const cleanerId = state.cleanerSelectedId;
+
+  if (!branchId || !date) { alert(t('invalidCommonInputs')); return; }
+
+  if (!state.commonAreaCleanings) state.commonAreaCleanings = [];
+
+  if (state.commonEditingId) {
+    const idx = state.commonAreaCleanings.findIndex(c => c.id === state.commonEditingId);
+    if (idx >= 0) {
+      state.commonAreaCleanings[idx] = {
+        ...state.commonAreaCleanings[idx],
+        branchId, date, label, memo, cleanerId,
+      };
+    }
+  } else {
+    state.commonAreaCleanings.push({
+      id: 'cc_' + Date.now() + '_' + Math.random().toString(36).slice(2, 7),
+      branchId, date, label, memo, cleanerId,
+    });
+  }
+
+  saveLocal();
+  cloudSaveDebounced('commonAreaCleanings');
+  closeCommonModal();
+  render();
+};
+$('cm-delete').onclick = () => {
+  if (!state.commonEditingId) return;
+  if (!confirm(t('commonDeleteConfirm'))) return;
+  state.commonAreaCleanings = (state.commonAreaCleanings || []).filter(c => c.id !== state.commonEditingId);
+  saveLocal();
+  cloudSaveDebounced('commonAreaCleanings');
+  closeCommonModal();
+  render();
+};
+$('common-modal').onclick = (e) => {
+  if (e.target.id === 'common-modal') closeCommonModal();
+};
+
+document.addEventListener('click', (e) => {
+  // 공용공간 청소 클릭 (data-common-id 속성으로 식별)
+  const commonEv = e.target.closest('.event[data-common-id]');
+  if (commonEv) {
+    openCommonModal(commonEv.dataset.commonId);
+    return;
+  }
+  // 기존 예약 클릭 (data-key 속성)
+  const ev = e.target.closest('.event[data-key]');
+  if (ev) {
+    const key = ev.dataset.key;
+    const all = getAllBookings();
+    const b = all.find(x => noteKey(x) === key);
+    if (b && b.isManual) {
+      openManualModal(b.manualId);
+    } else {
+      openBookingModal(key);
+    }
+    return;
+  }
+  // 직원별 화면의 날짜 셀 클릭 (빈 셀이 아니고 task가 아닌 경우에만)
+  // 위 두 분기에서 task 클릭은 이미 return 됐으므로 여기서는 셀 빈 영역 클릭만 도달
+  if (state.view === 'bystaff') {
+    const cell = e.target.closest('.bs-cell[data-date]');
+    if (cell && !cell.classList.contains('empty')) {
+      state.dayDetailDate = cell.dataset.date;
+      state.dayDetailFromView = 'bystaff';
+      state.view = 'dayDetail';
+      render();
+      return;
+    }
   }
 });
 
 $('btn-refresh').onclick = async () => {
-  // 1. 클라우드에서 다른 기기 변경사항 즉시 가져옴
+  // 1. 클라우드에서 다른 기기 변경사항 즉시 가져옴 (안전 적용 큐를 거침)
   setStatus(t('statusCloudCheck'), 'syncing');
   const cloud = await cloudLoad();
   if (cloud && cloud.savedAt && cloud.savedAt !== lastCloudSavedAt) {
-    if (applyCloudData(cloud)) {
-      lastCloudSavedAt = cloud.savedAt;
-      saveLocal();
-    }
+    queueCloudData(cloud);
   }
   // 2. iCal 재동기화 (force - 캐시 무시하고 강제로 다시 받음)
   await syncICal(true);
@@ -3189,12 +3836,18 @@ $('btn-add-booking').onclick = () => {
   if (state.rooms.length === 0) { alert(t('needRoomFirst')); return; }
   openManualModal(null);
 };
+$('btn-add-common').onclick = () => {
+  if (state.branches.length === 0) { alert(t('needBranchFirst')); return; }
+  openCommonModal(null);
+};
 
 document.querySelectorAll('.tab').forEach(t => {
   t.onclick = () => {
     document.querySelectorAll('.tab').forEach(x => x.classList.remove('active'));
     t.classList.add('active');
     state.view = t.dataset.view;
+    state.dayDetailDate = null;
+    state.dayDetailFromView = null;
     render();
   };
 });
@@ -3204,6 +3857,125 @@ document.querySelectorAll('.lang-btn').forEach(b => {
   b.onclick = () => setLang(b.dataset.lang);
 });
 
+// jsonbin → Firebase 마이그레이션 (한 번만 실행)
+const MIGRATION_KEY = 'schedule_v2_migrated';
+async function migrateFromJsonbin() {
+  return false; // 저장소를 Netlify로 옮겨서 예전 jsonbin 이전 기능은 사용 안 함
+  // 이미 마이그레이션 완료했으면 스킵
+  if (localStorage.getItem(MIGRATION_KEY)) return false;
+
+  try {
+    // Firebase에 이미 데이터가 있는지 확인
+    const fbData = await cloudLoad();
+    if (fbData && fbData.savedAt) {
+      // Firebase에 데이터가 이미 있음 → 마이그레이션 불필요
+      localStorage.setItem(MIGRATION_KEY, 'done');
+      console.log('Firebase already has data, skipping migration');
+      return false;
+    }
+
+    // jsonbin에서 데이터 가져오기 시도
+    console.log('Attempting migration from jsonbin to Firebase...');
+    const jsonbinData = await jsonbinLoadForMigration();
+    if (!jsonbinData) {
+      // jsonbin도 데이터 없음 → 새 사용자거나 한도 초과
+      localStorage.setItem(MIGRATION_KEY, 'no-data');
+      return false;
+    }
+
+    // jsonbin 데이터를 Firebase에 저장 (undefined 제거)
+    const cleanData = JSON.parse(JSON.stringify(jsonbinData));
+    await cloudSetOnce(cleanData, CONFIG.cloudSaveTimeoutMs);
+    localStorage.setItem(MIGRATION_KEY, 'done');
+    console.log('Migration successful');
+    return true;
+  } catch (e) {
+    console.warn('Migration failed:', e);
+    // 실패해도 다음에 다시 시도하지 않음 (jsonbin 한도 초과 등)
+    // 사용자가 수동으로 재시도하려면 localStorage에서 MIGRATION_KEY 삭제
+    localStorage.setItem(MIGRATION_KEY, 'failed');
+    return false;
+  }
+}
+
+// ─── 다른 기기 변경사항 수신 & 안전 적용 ───
+// 기존 문제: 입력 중/모달 중에 도착한 변경을 그냥 버렸음 (onValue는 같은 데이터를
+// 다시 보내주지 않으므로 "다음 변경 때 적용"이 되지 않음). 그 상태에서 이 기기가
+// 저장하면 상대방의 운영정보/메모가 유실됐다.
+// 해결: 즉시 적용이 곤란하면 pendingCloudData에 보관했다가 안전해지면 적용.
+let pendingCloudData = null;
+
+// 동기화 대상 필드만 뽑아 비교용 문자열 생성 (불필요한 재렌더 방지)
+function syncStateJson() {
+  const obj = {};
+  for (const k of SYNC_KEYS) obj[k] = state[k];
+  return JSON.stringify(obj);
+}
+
+function isSafeToApplyCloud() {
+  // 이 기기에 아직 클라우드로 안 보낸 변경이 있으면 보류
+  // (저장 완료 후 echo가 오면 그때 병합된 최신본이 적용됨)
+  if (cloudSaveInFlight || cloudSaveTimer || dirtyKeys.size > 0) return false;
+  // 모달 열려있거나 입력 중이면 보류
+  if (state.bookingModalKey) return false;
+  if ($('manual-modal') && $('manual-modal').classList.contains('open')) return false;
+  if ($('common-modal') && $('common-modal').classList.contains('open')) return false;
+  const focused = document.activeElement;
+  if (focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA')) return false;
+  return true;
+}
+
+function tryApplyPendingCloud() {
+  if (!pendingCloudData) return;
+  if (!isSafeToApplyCloud()) return;
+  const cloud = pendingCloudData;
+  pendingCloudData = null;
+
+  const before = syncStateJson();
+  if (applyCloudData(cloud)) {
+    lastCloudSavedAt = cloud.savedAt;
+    saveLocal();
+    // 실제로 내용이 달라졌을 때만 다시 그림
+    if (syncStateJson() !== before) {
+      render();
+      console.log('Realtime update applied');
+    }
+  }
+}
+
+function queueCloudData(cloud) {
+  if (!cloud || !cloud.savedAt) return;
+  pendingCloudData = cloud;
+  tryApplyPendingCloud();
+}
+
+// 입력이 끝나거나(포커스 해제) 주기적으로, 보류된 변경사항 적용 시도
+document.addEventListener('focusout', () => { setTimeout(tryApplyPendingCloud, 700); });
+setInterval(tryApplyPendingCloud, 3000);
+
+// Firebase 실시간 리스너 설정 (다른 사람 변경을 즉시 감지)
+let realtimeUnsubscribe = null;
+function setupRealtimeListener() {
+  if (!window.fb || !window.fb.ready) return;
+  // 기존 리스너가 있으면 정리
+  if (realtimeUnsubscribe) {
+    realtimeUnsubscribe();
+    realtimeUnsubscribe = null;
+  }
+
+  const dataRef = window.fb.ref(window.fb.db, CONFIG.fbDataPath);
+  const callback = (snapshot) => {
+    const cloud = snapshot.val();
+    if (!cloud || !cloud.savedAt) return;
+    // 우리가 방금 저장한 데이터의 echo도 병합된 최신본이므로 버리지 않고 큐에 넣는다.
+    // (내용이 같으면 tryApplyPendingCloud가 재렌더 없이 조용히 넘어감)
+    queueCloudData(cloud);
+  };
+
+  window.fb.onValue(dataRef, callback);
+  realtimeUnsubscribe = () => window.fb.off(dataRef, 'value', callback);
+}
+
 async function init() {
   loadLang();
   loadLocal();
@@ -3211,16 +3983,38 @@ async function init() {
   render();
 
   setStatus(t('statusCloudCheck'), 'syncing');
+
+  // Firebase가 로드될 때까지 잠깐 대기 (보통 1초 미만)
+  try {
+    await waitForFirebase(8000);
+  } catch (e) {
+    console.warn('Firebase load failed, working in offline mode:', e);
+    setStatus('오프라인 모드', 'err');
+    // Firebase 없이도 로컬 데이터로 작동
+    if (state.rooms.length > 0) {
+      await syncICal();
+    } else {
+      setStatus(t('statusNeedSetup'), 'err');
+    }
+    return;
+  }
+
+  // 마이그레이션 시도 (jsonbin → Firebase, 한 번만)
+  await migrateFromJsonbin();
+
+  // Firebase에서 최신 데이터 로드
   const cloud = await cloudLoad();
   if (cloud && applyCloudData(cloud)) {
     saveLocal();
     lastCloudSavedAt = cloud.savedAt;
-  } else if (cloudEmpty && state.rooms.length > 0) {
-    // 새 클라우드가 비어있고 이 기기에 데이터가 있으면 → 이 기기 데이터를 클라우드로 이전
-    cloudEmpty = false;
-    await cloudSave();
   }
   render();
+
+  // 이전 세션에서 저장 실패한 데이터가 있으면 재전송 시도
+  flushPendingQueue().catch(e => console.warn('Queue flush error:', e));
+
+  // 실시간 리스너 설정 (다른 사람 변경을 즉시 감지)
+  setupRealtimeListener();
 
   if (state.rooms.length > 0) {
     await syncICal();
@@ -3240,6 +4034,7 @@ setInterval(async () => {
   if (state.view === 'setup') return;
   if (state.bookingModalKey) return;
   if ($('manual-modal').classList.contains('open')) return;
+  if ($('common-modal').classList.contains('open')) return;
   if (state.rooms.length === 0) return;
   // 페이지 숨김(다른 탭/앱) 상태면 스킵 - 어차피 visibility 이벤트로 처리됨
   if (document.visibilityState !== 'visible') return;
@@ -3256,43 +4051,196 @@ setInterval(async () => {
 
 // 앱이 백그라운드에서 다시 활성화되면 즉시 동기화 (예: 다른 앱 갔다 옴)
 document.addEventListener('visibilitychange', async () => {
+  // 화면이 사라질 때 (다른 앱으로 전환, 화면 끄기 등) - 즉시 저장
+  if (document.visibilityState === 'hidden') {
+    // 셋업 화면이거나 데이터 없으면 저장할 것 없음
+    if (state.view === 'setup') return;
+    if (state.rooms.length === 0) return;
+    // 대기 중인 저장이 있으면 즉시 실행
+    if (cloudSaveTimer) {
+      cloudSaveBeacon();  // keepalive로 백그라운드에서도 전송 보장
+    }
+    return;
+  }
   if (document.visibilityState !== 'visible') return;
   if (state.rooms.length === 0) return;
   if (state.view === 'setup') return;
   if (state.bookingModalKey) return;
-  // 클라우드 빠르게 확인
+  if ($('manual-modal').classList.contains('open')) return;
+  if ($('common-modal').classList.contains('open')) return;
+  // 클라우드 빠르게 확인 (안전 적용 큐를 거침 - 미저장 로컬 변경을 덮어쓰지 않음)
   try {
     const cloud = await cloudLoad();
     if (cloud && cloud.savedAt && cloud.savedAt !== lastCloudSavedAt) {
-      if (applyCloudData(cloud)) {
-        lastCloudSavedAt = cloud.savedAt;
-        saveLocal();
-        render();
-      }
+      queueCloudData(cloud);
     }
     // iCal은 캐시 있으면 즉시, 3분 지났으면 새로 받음
     await syncICal(false);
   } catch(e) { console.warn('Visibility sync failed:', e); }
 });
 
-setInterval(async () => {
-  if (cloudSyncPaused) return;
-  if (state.view === 'setup') return;
-  if (state.bookingModalKey) return;
-  if ($('manual-modal').classList.contains('open')) return;
-  const focused = document.activeElement;
-  if (focused && (focused.tagName === 'INPUT' || focused.tagName === 'TEXTAREA')) return;
-  if (Date.now() - lastUserActivity < 5000) return;
+// 페이지 닫힐 때 (탭 닫기, 브라우저 종료, 새로고침 등) - 즉시 저장
+// beaconFired 락이 중복 실행을 막아줌
+window.addEventListener('pagehide', () => {
+  if (cloudSaveTimer || cloudSaveInFlight) {
+    cloudSaveBeacon();
+  }
+});
 
-  const cloud = await cloudLoad();
-  if (!cloud || !cloud.savedAt) return;
-  if (cloud.savedAt === lastCloudSavedAt) return;
-  if (applyCloudData(cloud)) {
-    lastCloudSavedAt = cloud.savedAt;
+window.addEventListener('beforeunload', () => {
+  if (cloudSaveTimer || cloudSaveInFlight) {
+    cloudSaveBeacon();
+  }
+});
+
+
+// ════════════════════════════════════════════════════════════
+// 직원별 달력: 청소 카드를 끌어서 다른 날짜로 옮기기
+// (휴대폰은 카드를 길게 누른 뒤 끌기, 컴퓨터는 바로 끌기)
+// ════════════════════════════════════════════════════════════
+(function () {
+  const HOLD_MS = 350;
+  let drag = null;
+  let suppressClickUntil = 0;
+
+  function cellAt(x, y) {
+    const el = document.elementFromPoint(x, y);
+    return el ? el.closest('.bs-cell[data-date]') : null;
+  }
+  function clearHover() {
+    document.querySelectorAll('.bs-cell.drop-hover').forEach(c => c.classList.remove('drop-hover'));
+  }
+  function begin(x, y) {
+    drag.active = true;
+    const r = drag.el.getBoundingClientRect();
+    const g = drag.el.cloneNode(true);
+    g.classList.add('bs-ghost');
+    g.style.width = r.width + 'px';
+    document.body.appendChild(g);
+    drag.ghost = g;
+    drag.offX = x - r.left;
+    drag.offY = y - r.top;
+    drag.el.classList.add('bs-dragging');
+    move(x, y);
+    try { if (navigator.vibrate) navigator.vibrate(15); } catch (e) {}
+  }
+  function move(x, y) {
+    if (!drag || !drag.active) return;
+    drag.ghost.style.left = (x - drag.offX) + 'px';
+    drag.ghost.style.top = (y - drag.offY) + 'px';
+    clearHover();
+    const c = cellAt(x, y);
+    if (c) c.classList.add('drop-hover');
+    // 화면 가장자리로 끌면 달력이 옆으로 스크롤됨
+    const sc = document.querySelector('.bs-scroll');
+    if (sc) {
+      const sr = sc.getBoundingClientRect();
+      if (x < sr.left + 30) sc.scrollLeft -= 14;
+      else if (x > sr.right - 30) sc.scrollLeft += 14;
+    }
+  }
+  function finish(x, y) {
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    clearTimeout(d.timer);
+    if (!d.active) return;
+    suppressClickUntil = Date.now() + 500;
+    d.ghost.remove();
+    d.el.classList.remove('bs-dragging');
+    clearHover();
+    const c = cellAt(x, y);
+    if (c) moveTask(d.el, c.dataset.date);
+  }
+  function cancel() {
+    if (!drag) return;
+    clearTimeout(drag.timer);
+    if (drag.active) {
+      drag.ghost.remove();
+      drag.el.classList.remove('bs-dragging');
+      clearHover();
+      suppressClickUntil = Date.now() + 500;
+    }
+    drag = null;
+  }
+  function moveTask(el, newDate) {
+    if (!newDate) return;
+    if (el.dataset.commonId) {
+      const c = (state.commonAreaCleanings || []).find(x => x.id === el.dataset.commonId);
+      if (!c || c.date === newDate) return;
+      c.date = newDate;
+      saveLocal();
+      cloudSaveDebounced('commonAreaCleanings');
+      render();
+      return;
+    }
+    const key = el.dataset.key;
+    if (!key) return;
+    const co = key.split('|')[2];
+    const off = Math.round((parseDate(newDate) - parseDate(co)) / 86400000);
+    const note = Object.assign({}, state.notes[key] || {});
+    const cur = typeof note.cleanOffset === 'number' ? note.cleanOffset : 0;
+    if (off === cur) return;
+    if (off === 0) delete note.cleanOffset; else note.cleanOffset = off;
+    state.notes[key] = note;
     saveLocal();
+    cloudSaveDebounced('notes');
     render();
   }
-}, CONFIG.cloudPollMs);
+
+  // 마우스
+  document.addEventListener('mousedown', e => {
+    const el = e.target.closest('.bs-grid .bs-task');
+    if (!el || e.button !== 0) return;
+    drag = { el, sx: e.clientX, sy: e.clientY, active: false };
+  });
+  document.addEventListener('mousemove', e => {
+    if (!drag) return;
+    if (!drag.active) {
+      if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 6) begin(e.clientX, e.clientY);
+      return;
+    }
+    e.preventDefault();
+    move(e.clientX, e.clientY);
+  });
+  document.addEventListener('mouseup', e => finish(e.clientX, e.clientY));
+
+  // 터치 (길게 눌러야 끌기 시작 - 짧게 밀면 평소처럼 스크롤)
+  document.addEventListener('touchstart', e => {
+    const el = e.target.closest('.bs-grid .bs-task');
+    if (!el || e.touches.length > 1) return;
+    const tt = e.touches[0];
+    drag = { el, sx: tt.clientX, sy: tt.clientY, lx: tt.clientX, ly: tt.clientY, active: false };
+    drag.timer = setTimeout(() => { if (drag && !drag.active) begin(drag.lx, drag.ly); }, HOLD_MS);
+  }, { passive: true });
+  document.addEventListener('touchmove', e => {
+    if (!drag) return;
+    const tt = e.touches[0];
+    drag.lx = tt.clientX; drag.ly = tt.clientY;
+    if (!drag.active) {
+      if (Math.hypot(tt.clientX - drag.sx, tt.clientY - drag.sy) > 10) cancel();
+      return;
+    }
+    e.preventDefault();
+    move(tt.clientX, tt.clientY);
+  }, { passive: false });
+  document.addEventListener('touchend', e => {
+    if (!drag) return;
+    if (drag.active) e.preventDefault();
+    finish(drag.lx, drag.ly);
+  }, { passive: false });
+  document.addEventListener('touchcancel', cancel);
+  document.addEventListener('contextmenu', e => {
+    if (e.target.closest('.bs-grid .bs-task')) e.preventDefault();
+  });
+  // 끌기 직후에는 카드 클릭(상세창 열기) 무시
+  document.addEventListener('click', e => {
+    if (Date.now() < suppressClickUntil && e.target.closest('.bs-grid')) {
+      e.stopPropagation(); e.preventDefault();
+    }
+  }, true);
+})();
+
 
 init();
 
