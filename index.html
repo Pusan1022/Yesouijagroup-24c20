@@ -867,12 +867,12 @@
     width: 100%;
     max-width: 500px;
     border-radius: 18px 18px 0 0;
-    padding: 22px 18px 24px;
-    max-height: 88vh;
+    padding: 22px 18px calc(84px + env(safe-area-inset-bottom, 0px));
+    max-height: 92vh;
     overflow-y: auto;
   }
   @media (min-width: 600px) {
-    .modal { border-radius: 18px; }
+    .modal { border-radius: 18px; padding-bottom: 24px; }
   }
   .modal h3 {
     font-family: 'Georgia', serif;
@@ -3723,8 +3723,12 @@ function openCommonModal(existingId) {
     }
     $('cm-delete').style.display = '';
   } else {
-    const today = new Date();
-    $('cm-date').value = fmtDate(today);
+    // 기본 날짜: 직원별 달력에서 눌러 들어간 날짜 > 내일 탭이면 내일 > 오늘
+    const today = new Date(); today.setHours(0,0,0,0);
+    let defDate = fmtDate(today);
+    if (state.view === 'dayDetail' && state.dayDetailDate) defDate = state.dayDetailDate;
+    else if (state.view === 'tomorrow') defDate = fmtDate(addDays(today, 1));
+    $('cm-date').value = defDate;
     $('cm-label').value = '';
     $('cm-memo').value = '';
     state.cleanerSelectedId = null;
